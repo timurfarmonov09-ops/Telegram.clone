@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Image Display</title>
+    <style>
+        body {
+            background: #0a1929;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .test-image {
+            max-width: 280px;
+            border-radius: 16px;
+            margin: 20px 0;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Display Test</h1>
+    
+    <h2>Test 1: Direct URL</h2>
+    <img src="http://localhost:3001/uploads/messages/ef4ccfd5-d9ff-4550-9f22-bbf021462041.png" 
+         class="test-image" 
+         onload="document.getElementById('test1').innerHTML = '✅ Image loaded successfully!'; document.getElementById('test1').className = 'success';"
+         onerror="document.getElementById('test1').innerHTML = '❌ Image failed to load'; document.getElementById('test1').className = 'error';">
+    <p id="test1">Loading...</p>
+
+    <h2>Test 2: Fetch API</h2>
+    <button onclick="testFetch()">Test Fetch</button>
+    <p id="test2"></p>
+    <img id="fetchedImage" class="test-image" style="display:none;">
+
+    <script>
+        async function testFetch() {
+            const url = 'http://localhost:3001/uploads/messages/ef4ccfd5-d9ff-4550-9f22-bbf021462041.png';
+            document.getElementById('test2').innerHTML = 'Fetching...';
+            
+            try {
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    const img = document.getElementById('fetchedImage');
+                    img.src = objectUrl;
+                    img.style.display = 'block';
+                    document.getElementById('test2').innerHTML = '✅ Fetch successful!';
+                    document.getElementById('test2').className = 'success';
+                } else {
+                    document.getElementById('test2').innerHTML = `❌ Fetch failed: ${response.status}`;
+                    document.getElementById('test2').className = 'error';
+                }
+            } catch (error) {
+                document.getElementById('test2').innerHTML = `❌ Error: ${error.message}`;
+                document.getElementById('test2').className = 'error';
+                console.error('Fetch error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

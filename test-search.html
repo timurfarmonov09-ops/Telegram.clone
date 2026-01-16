@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0a1929;
+            color: white;
+        }
+        input, button {
+            padding: 10px;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #0088cc;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #006699;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .user-card {
+            background: #1a2332;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+        .user-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0088cc;
+        }
+        .user-phone {
+            color: #888;
+            font-size: 14px;
+        }
+        .user-bio {
+            color: #ccc;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .success {
+            color: #4caf50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Test User Search</h1>
+    
+    <div>
+        <h3>Step 1: Login</h3>
+        <input type="text" id="phone" placeholder="+998999999999" value="+998999999999">
+        <button onclick="login()">Login</button>
+        <span id="loginStatus"></span>
+    </div>
+
+    <div>
+        <h3>Step 2: Search Users</h3>
+        <input type="text" id="searchQuery" placeholder="Search: Alisher, Mirzo, Abdulla..." value="Alisher">
+        <button onclick="searchUsers()">Search</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        let token = '';
+
+        async function login() {
+            const phone = document.getElementById('phone').value;
+            const statusEl = document.getElementById('loginStatus');
+            
+            try {
+                statusEl.textContent = 'Logging in...';
+                statusEl.className = '';
+                
+                const response = await fetch('http://localhost:3001/api/auth/phone-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    token = data.data.token;
+                    statusEl.textContent = '✅ Logged in successfully!';
+                    statusEl.className = 'success';
+                    console.log('Token:', token);
+                } else {
+                    statusEl.textContent = '❌ Login failed: ' + data.error;
+                    statusEl.className = 'error';
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ Error: ' + error.message;
+                statusEl.className = 'error';
+            }
+        }
+
+        async function searchUsers() {
+            if (!token) {
+                alert('Please login first!');
+                return;
+            }
+
+            const query = document.getElementById('searchQuery').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                resultDiv.innerHTML = '<p>Searching...</p>';
+                
+                const response = await fetch(`http://localhost:3001/api/users/search?query=${encodeURIComponent(query)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const users = data.data.users;
+                    
+                    if (users.length === 0) {
+                        resultDiv.innerHTML = '<p>No users found</p>';
+                    } else {
+                        resultDiv.innerHTML = `<h3>Found ${users.length} user(s):</h3>`;
+                        
+                        users.forEach(user => {
+                            const userCard = document.createElement('div');
+                            userCard.className = 'user-card';
+                            userCard.innerHTML = `
+                                <div class="user-name">${user.first_name || 'User'} ${user.last_name || ''}</div>
+                                <div class="user-phone">+${user.username || user.phone_number}</div>
+                                ${user.bio ? `<div class="user-bio">${user.bio}</div>` : ''}
+                            `;
+                            resultDiv.appendChild(userCard);
+                        });
+                    }
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Auto-login on page load
+        window.onload = () => {
+            login();
+        };
+    </script>
+</body>
+</html>
