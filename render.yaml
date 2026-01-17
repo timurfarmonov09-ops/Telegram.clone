@@ -19,14 +19,13 @@ services:
       - key: CLIENT_URL
         sync: false
 
-  # Frontend Service
-  - type: web
+  # Frontend Service  
+  - type: static
     name: telegram-clone-frontend
-    env: static
     region: oregon
     plan: free
     buildCommand: cd client && npm install && npm run build
-    staticPublishPath: ./client/dist
+    publishPath: ./client/dist
     envVars:
       - key: VITE_API_URL
         sync: false
