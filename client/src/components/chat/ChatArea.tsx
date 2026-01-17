@@ -357,11 +357,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       setMessages(prev =>
         prev.map(msg => {
           if (msg.id === tempId) {
+            console.log('📸 Updating message with saved image:', {
+              tempId,
+              savedImage: savedMessage.image,
+              previewUrl
+            });
             return { 
               ...savedMessage, 
               status: 'sent', 
               uploadProgress: undefined,
-              image: savedMessage.image
+              image: savedMessage.image || previewUrl
             };
           }
           return msg;
@@ -434,7 +439,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               ...savedMessage, 
               status: 'sent', 
               uploadProgress: undefined,
-              video: savedMessage.video
+              video: savedMessage.video || previewUrl
             };
           }
           return msg;
@@ -762,20 +767,43 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     {msg.image && (
                       <div className="mb-2 relative" style={{ maxWidth: '280px' }}>
                         <img 
-                          src={msg.image.startsWith('http') || msg.image.startsWith('blob:') ? msg.image : `http://localhost:3001${msg.image}`}
-                          alt="Image"
-                          className="rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                          src={
+                            msg.image.startsWith('blob:') 
+                              ? msg.image 
+                              : msg.image.startsWith('http')
+                              ? msg.image
+                              : `http://localhost:3001${msg.image}`
+                          }
+                          alt="Chat image"
+                          loading="eager"
+                          decoding="async"
+                          className="rounded-2xl cursor-pointer hover:opacity-95 transition-opacity w-full h-auto block"
                           style={{ 
-                            display: 'block',
                             width: '100%',
                             height: 'auto',
-                            maxWidth: '280px'
+                            maxWidth: '280px',
+                            minHeight: '100px',
+                            objectFit: 'cover',
+                            backgroundColor: '#1a2332'
                           }}
                           onClick={() => {
                             if (msg.uploadProgress === undefined || msg.uploadProgress === 100) {
-                              const imageUrl = msg.image!.startsWith('http') || msg.image!.startsWith('blob:') ? msg.image! : `http://localhost:3001${msg.image}`;
+                              const imageUrl = msg.image!.startsWith('blob:') 
+                                ? msg.image! 
+                                : msg.image!.startsWith('http')
+                                ? msg.image!
+                                : `http://localhost:3001${msg.image}`;
                               window.open(imageUrl, '_blank');
                             }
+                          }}
+                          onLoad={() => {
+                            console.log('✅ Image loaded:', msg.image);
+                          }}
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            console.error('❌ Image failed to load:', msg.image);
+                            console.error('Attempted URL:', img.src);
+                            img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="200"%3E%3Crect fill="%23333" width="280" height="200"/%3E%3Ctext x="50%25" y="50%25" font-size="14" fill="%23999" text-anchor="middle" dy=".3em"%3EImage not found%3C/text%3E%3C/svg%3E';
                           }}
                         />
                         
@@ -802,13 +830,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     {msg.video && (
                       <div className="mb-2 relative" style={{ maxWidth: '280px' }}>
                         <video 
-                          src={msg.video.startsWith('http') || msg.video.startsWith('blob:') ? msg.video : `http://localhost:3001${msg.video}`}
+                          src={
+                            msg.video.startsWith('blob:') 
+                              ? msg.video 
+                              : msg.video.startsWith('http')
+                              ? msg.video
+                              : `http://localhost:3001${msg.video}`
+                          }
                           controls
-                          className="rounded-2xl w-full"
+                          preload="metadata"
+                          className="rounded-2xl w-full block"
                           style={{ 
-                            display: 'block',
                             width: '100%',
-                            maxWidth: '280px'
+                            maxWidth: '280px',
+                            minHeight: '150px',
+                            backgroundColor: '#000'
+                          }}
+                          onLoadedMetadata={() => {
+                            console.log('✅ Video loaded:', msg.video);
+                          }}
+                          onError={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            console.error('❌ Video failed to load:', msg.video);
+                            console.error('Attempted URL:', video.src);
                           }}
                         />
                         

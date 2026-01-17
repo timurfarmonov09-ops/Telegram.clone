@@ -170,6 +170,8 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
   try {
     const { chatId, content } = req.body;
 
+    console.log('📸 Send image request:', { chatId, hasFile: !!req.file, fileName: req.file?.filename });
+
     if (!chatId) {
       return res.status(400).json({
         success: false,
@@ -178,16 +180,34 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
     }
 
     if (!req.file) {
+      console.error('❌ No file uploaded');
       return res.status(400).json({
         success: false,
         error: 'Image file is required'
       });
     }
 
+    // Get user from request (should be set by auth middleware)
+    const userId = req.user?.userId;
+    if (!userId) {
+      // Delete uploaded file if not authenticated
+      if (req.file) {
+        const filePath = path.join(__dirname, '../uploads/messages', req.file.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      console.error('❌ Unauthorized - no userId');
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
     // Verify user is a member of this chat
     const chat = await Chat.findOne({
       _id: chatId,
-      members: req.user.userId
+      members: userId
     });
 
     if (!chat) {
@@ -197,6 +217,7 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
         fs.unlinkSync(filePath);
       }
       
+      console.error('❌ Access denied to chat:', chatId);
       return res.status(403).json({
         success: false,
         error: 'Access denied to this chat'
@@ -205,9 +226,21 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
 
     // Create message with image
     const imageUrl = `/uploads/messages/${req.file.filename}`;
+    console.log('✅ Image saved:', { filename: req.file.filename, path: imageUrl, fullPath: path.join(__dirname, '../uploads/messages', req.file.filename) });
+    
+    // Verify file exists
+    const filePath = path.join(__dirname, '../uploads/messages', req.file.filename);
+    if (!fs.existsSync(filePath)) {
+      console.error('❌ File does not exist after upload:', filePath);
+      return res.status(500).json({
+        success: false,
+        error: 'File upload failed - file not found'
+      });
+    }
+    
     const message = new Message({
       chat: chatId,
-      sender: req.user.userId,
+      sender: userId,
       content: content?.trim() || '',
       image: imageUrl
     });
@@ -215,10 +248,12 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
     await message.save();
     await message.populate('sender', 'username first_name last_name avatar isOnline');
 
+    console.log('✅ Message saved:', { id: message._id, image: message.image });
+
     // Update chat's last message
     chat.lastMessage = {
       content: content?.trim() || '📷 Photo',
-      sender: req.user.userId,
+      sender: userId,
       timestamp: new Date()
     };
     await chat.save();
@@ -237,7 +272,7 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Send image error:', error);
+    console.error('❌ Send image error:', error);
     
     // Delete uploaded file if database update fails
     if (req.file) {
@@ -349,10 +384,44 @@ router.put('/:chatId/read', async (req, res) => {
   }
 });
 
+// Configure multer for video uploads
+const videoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/messages');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const videoUpload = multer({
+  storage: videoStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for videos
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /video\/mp4|video\/quicktime|video\/x-msvideo|video\/x-matroska|video\/webm/;
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed!'));
+    }
+  }
+});
+
 // POST /api/messages/send-video - Send a video message
-router.post('/send-video', upload.single('video'), async (req, res) => {
+router.post('/send-video', videoUpload.single('video'), async (req, res) => {
   try {
     const { chatId, content } = req.body;
+
+    console.log('🎥 Send video request:', { chatId, hasFile: !!req.file, fileName: req.file?.filename });
 
     if (!chatId) {
       return res.status(400).json({
@@ -362,16 +431,34 @@ router.post('/send-video', upload.single('video'), async (req, res) => {
     }
 
     if (!req.file) {
+      console.error('❌ No video file uploaded');
       return res.status(400).json({
         success: false,
         error: 'Video file is required'
       });
     }
 
+    // Get user from request (should be set by auth middleware)
+    const userId = req.user?.userId;
+    if (!userId) {
+      // Delete uploaded file if not authenticated
+      if (req.file) {
+        const filePath = path.join(__dirname, '../uploads/messages', req.file.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      console.error('❌ Unauthorized - no userId');
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
     // Verify user is a member of this chat
     const chat = await Chat.findOne({
       _id: chatId,
-      members: req.user.userId
+      members: userId
     });
 
     if (!chat) {
@@ -381,6 +468,7 @@ router.post('/send-video', upload.single('video'), async (req, res) => {
         fs.unlinkSync(filePath);
       }
       
+      console.error('❌ Access denied to chat:', chatId);
       return res.status(403).json({
         success: false,
         error: 'Access denied to this chat'
@@ -389,9 +477,11 @@ router.post('/send-video', upload.single('video'), async (req, res) => {
 
     // Create message with video
     const videoUrl = `/uploads/messages/${req.file.filename}`;
+    console.log('✅ Video URL:', videoUrl);
+    
     const message = new Message({
       chat: chatId,
-      sender: req.user.userId,
+      sender: userId,
       content: content?.trim() || '',
       video: videoUrl
     });
@@ -399,10 +489,12 @@ router.post('/send-video', upload.single('video'), async (req, res) => {
     await message.save();
     await message.populate('sender', 'username first_name last_name avatar isOnline');
 
+    console.log('✅ Video message saved:', { id: message._id, video: message.video });
+
     // Update chat's last message
     chat.lastMessage = {
       content: content?.trim() || '🎥 Video',
-      sender: req.user.userId,
+      sender: userId,
       timestamp: new Date()
     };
     await chat.save();
@@ -421,7 +513,7 @@ router.post('/send-video', upload.single('video'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Send video error:', error);
+    console.error('❌ Send video error:', error);
     
     // Delete uploaded file if database update fails
     if (req.file) {
@@ -469,6 +561,8 @@ router.post('/send-file', fileUpload.single('file'), async (req, res) => {
   try {
     const { chatId, content } = req.body;
 
+    console.log('📎 Send file request:', { chatId, hasFile: !!req.file, fileName: req.file?.originalname });
+
     if (!chatId) {
       return res.status(400).json({
         success: false,
@@ -477,16 +571,34 @@ router.post('/send-file', fileUpload.single('file'), async (req, res) => {
     }
 
     if (!req.file) {
+      console.error('❌ No file uploaded');
       return res.status(400).json({
         success: false,
         error: 'File is required'
       });
     }
 
+    // Get user from request (should be set by auth middleware)
+    const userId = req.user?.userId;
+    if (!userId) {
+      // Delete uploaded file if not authenticated
+      if (req.file) {
+        const filePath = path.join(__dirname, '../uploads/files', req.file.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      console.error('❌ Unauthorized - no userId');
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
     // Verify user is a member of this chat
     const chat = await Chat.findOne({
       _id: chatId,
-      members: req.user.userId
+      members: userId
     });
 
     if (!chat) {
@@ -496,6 +608,7 @@ router.post('/send-file', fileUpload.single('file'), async (req, res) => {
         fs.unlinkSync(filePath);
       }
       
+      console.error('❌ Access denied to chat:', chatId);
       return res.status(403).json({
         success: false,
         error: 'Access denied to this chat'
@@ -504,9 +617,11 @@ router.post('/send-file', fileUpload.single('file'), async (req, res) => {
 
     // Create message with file
     const fileUrl = `/uploads/files/${req.file.filename}`;
+    console.log('✅ File URL:', fileUrl);
+    
     const message = new Message({
       chat: chatId,
-      sender: req.user.userId,
+      sender: userId,
       content: content?.trim() || '',
       file: fileUrl,
       fileName: req.file.originalname,
@@ -517,11 +632,13 @@ router.post('/send-file', fileUpload.single('file'), async (req, res) => {
     await message.save();
     await message.populate('sender', 'username first_name last_name avatar isOnline');
 
+    console.log('✅ File message saved:', { id: message._id, file: message.file, fileName: message.fileName });
+
     // Update chat's last message
     const fileIcon = getFileIcon(req.file.mimetype);
     chat.lastMessage = {
       content: content?.trim() || `${fileIcon} ${req.file.originalname}`,
-      sender: req.user.userId,
+      sender: userId,
       timestamp: new Date()
     };
     await chat.save();
@@ -540,7 +657,7 @@ router.post('/send-file', fileUpload.single('file'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Send file error:', error);
+    console.error('❌ Send file error:', error);
     
     // Delete uploaded file if database update fails
     if (req.file) {
