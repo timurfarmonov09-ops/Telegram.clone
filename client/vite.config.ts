@@ -10,7 +10,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: true
+    host: true,
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'telegram-clone-frontend.onrender.com',
+      '*.onrender.com'
+    ]
   },
   resolve: {
     alias: {
